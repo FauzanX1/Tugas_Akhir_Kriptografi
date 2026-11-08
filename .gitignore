@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+.venv/
+venv/
+ENV/
+storage/encrypted_files/*
+!storage/encrypted_files/.gitkeep
+storage/decrypted_files/*
+!storage/decrypted_files/.gitkeep
+storage/stego_images/*
+!storage/stego_images/.gitkeep
+.pytest_cache/
+*.log
