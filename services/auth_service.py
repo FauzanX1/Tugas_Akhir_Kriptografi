@@ -47,10 +47,10 @@ class AuthService:
             return False, f"Terjadi kesalahan saat registrasi: {str(e)}"
 
     @staticmethod
-    def login(username: str, password: str, require_biometric: bool = False, require_dongle: bool = False) -> tuple[bool, str]:
+    def login(username: str, password: str, require_biometric: bool = False, require_dongle: bool = False, parent_window=None) -> tuple[bool, str]:
         """
         Authenticate user with Argon2id password verification,
-        followed by Windows Hello and USB Dongle verification if enabled.
+        followed by live Webcam Face Recognition and USB Dongle verification if enabled.
         """
         username = username.strip()
         user = db.fetch_one("SELECT * FROM users WHERE username = %s", (username,))
@@ -77,14 +77,21 @@ class AuthService:
             if not dongle_ok:
                 return False, dongle_msg
 
-        # 3. Check Windows Hello Biometric if required
+        # 3. Check Biometric (Face Recognition Webcam / Windows Hello) if required
         must_check_biometric = user.get("biometric_enabled", 0) == 1 or require_biometric
         if must_check_biometric:
-            bio_ok, bio_msg = BiometricAuth.verify_biometric(
-                prompt_message=f"Verifikasi identitas Windows Hello untuk akun {username}"
-            )
-            if not bio_ok:
-                return False, bio_msg
+            # Check if user has registered a face template
+            face_tpl = BiometricAuth.get_user_face_template(user["id"])
+            if face_tpl is None and not require_biometric:
+                # User has not enrolled face yet and not forced by login checkbox
+                pass
+            else:
+                bio_ok, bio_msg = BiometricAuth.verify_biometric(
+                    user_id=user["id"],
+                    parent_window=parent_window
+                )
+                if not bio_ok:
+                    return False, bio_msg
 
         # Login success: initialize session & keys
         session.login(user, password)

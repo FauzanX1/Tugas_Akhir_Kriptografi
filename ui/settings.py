@@ -110,25 +110,39 @@ class SettingsView(QWidget):
 
         layout.addWidget(dongle_card)
 
-        # 3. Windows Hello Test Card
+        # 3. Biometric & Face Recognition Card
         hello_card = QFrame()
         hello_card.setObjectName("Card")
         hc_layout = QVBoxLayout(hello_card)
         hc_layout.setContentsMargins(18, 16, 18, 16)
-        hc_layout.setSpacing(10)
+        hc_layout.setSpacing(12)
 
-        hc_title = QLabel("👤 Windows Hello Biometric Test")
+        hc_title = QLabel("👤 Autentikasi Biometrik Wajah (Face Recognition Webcam)")
         hc_title.setObjectName("SectionHeader")
         hc_layout.addWidget(hc_title)
 
-        self.lbl_hello_status = QLabel("Status Windows Hello: Memeriksa...")
-        self.lbl_hello_status.setStyleSheet("color: #94a3b8;")
-        hc_layout.addWidget(self.lbl_hello_status)
+        self.lbl_face_status = QLabel("Status Wajah: Memeriksa...")
+        self.lbl_face_status.setStyleSheet("color: #cbd5e1; font-size: 13px;")
+        hc_layout.addWidget(self.lbl_face_status)
 
-        self.btn_test_hello = QPushButton("🧪 Tes Prompt Autentikasi Windows Hello Sekarang")
+        h_face_btns = QHBoxLayout()
+        self.btn_register_face = QPushButton("📸 Buka Kamera & Daftarkan Wajah Saya")
+        self.btn_register_face.setObjectName("PrimaryBtn")
+        self.btn_register_face.clicked.connect(self._register_user_face)
+        h_face_btns.addWidget(self.btn_register_face)
+
+        self.btn_test_face = QPushButton("🧪 Uji Pemindaian Wajah Sekarang")
+        self.btn_test_face.setObjectName("SecondaryBtn")
+        self.btn_test_face.clicked.connect(self._test_face_recognition)
+        h_face_btns.addWidget(self.btn_test_face)
+
+        self.btn_test_hello = QPushButton("🪟 Cek Windows Hello API")
         self.btn_test_hello.setObjectName("SecondaryBtn")
         self.btn_test_hello.clicked.connect(self._test_windows_hello)
-        hc_layout.addWidget(self.btn_test_hello, alignment=Qt.AlignLeft)
+        h_face_btns.addWidget(self.btn_test_hello)
+        h_face_btns.addStretch()
+
+        hc_layout.addLayout(h_face_btns)
 
         layout.addWidget(hello_card)
         layout.addStretch()
@@ -150,9 +164,14 @@ class SettingsView(QWidget):
             self.dongle_table.setItem(i, 1, QTableWidgetItem(d["dongle_fingerprint"]))
             self.dongle_table.setItem(i, 2, QTableWidgetItem(str(d["registered_at"])))
 
-        # Update Windows Hello check
-        bio = BiometricAuth.check_availability()
-        self.lbl_hello_status.setText(f"Status Hardware: {bio['message']} {'[DEV MODE ON]' if DEV_MODE else ''}")
+        # Update Biometric status
+        tpl = BiometricAuth.get_user_face_template(user_id)
+        if tpl is not None:
+            self.lbl_face_status.setText("Status Wajah: ✅ Terdaftar dan Siap Digunakan untuk Otentikasi Biometrik.")
+            self.lbl_face_status.setStyleSheet("color: #34d399; font-weight: bold;")
+        else:
+            self.lbl_face_status.setText("Status Wajah: ⚠️ Belum Terdaftar. Klik tombol di bawah untuk mengambil sampel wajah.")
+            self.lbl_face_status.setStyleSheet("color: #f59e0b; font-weight: bold;")
 
         self._scan_usb_devices()
 
@@ -188,9 +207,29 @@ class SettingsView(QWidget):
         )
         QMessageBox.information(self, "Pengaturan Disimpan", "Kebijakan autentikasi MFA berhasil diperbarui!")
 
-    def _test_windows_hello(self):
-        ok, msg = BiometricAuth.verify_biometric(prompt_message="Uji Verifikasi Biometrik Windows Hello SecureVault")
+    def _register_user_face(self):
+        user_id = session.get_user_id()
+        if not user_id:
+            return
+
+        from ui.face_scan_dialog import FaceScanDialog
+        dlg = FaceScanDialog(parent=self, mode=FaceScanDialog.MODE_REGISTER)
+        if dlg.exec():
+            if dlg.captured_template is not None:
+                BiometricAuth.save_user_face_template(user_id, dlg.captured_template)
+                self.load_user_settings()
+
+    def _test_face_recognition(self):
+        user_id = session.get_user_id()
+        if not user_id:
+            return
+
+        ok, msg = BiometricAuth.verify_biometric(user_id=user_id, parent_window=self)
         if ok:
-            QMessageBox.information(self, "Verifikasi Sukses", f"✅ {msg}")
+            QMessageBox.information(self, "Verifikasi Wajah Sukses", f"✅ {msg}")
         else:
-            QMessageBox.warning(self, "Verifikasi Gagal", f"❌ {msg}")
+            QMessageBox.warning(self, "Verifikasi Wajah Gagal", f"❌ {msg}")
+
+    def _test_windows_hello(self):
+        bio = BiometricAuth._check_windows_hello_availability()
+        QMessageBox.information(self, "Status Windows Hello API", f"Status Sensor Windows Hello:\n{bio['message']}")

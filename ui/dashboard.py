@@ -155,7 +155,10 @@ class DashboardView(QWidget):
 
             # Hardware status
             bio = BiometricAuth.check_availability()
-            self.lbl_hello.setText(f"• Windows Hello Biometrik: {bio['message']}")
+            user_id = session.get_user_id()
+            face_tpl = BiometricAuth.get_user_face_template(user_id) if user_id else None
+            face_status_str = "Wajah Terdaftar" if face_tpl is not None else "Wajah Belum Terdaftar"
+            self.lbl_hello.setText(f"• Biometrik (Face Recognition): {bio['message']} ({face_status_str})")
 
             usb_list = USBDongleAuth.list_connected_usb_drives()
             self.lbl_dongle.setText(f"• USB Security Dongle: Terdeteksi {len(usb_list)} storage device/token terhubung.")

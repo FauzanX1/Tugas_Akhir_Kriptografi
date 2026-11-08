@@ -68,6 +68,17 @@ class RegisterDialog(QDialog):
         self.pwd_confirm.setPlaceholderText("Ulangi password")
         c_layout.addWidget(self.pwd_confirm)
 
+        # Optional Face Biometric Capture
+        self.face_template = None
+        self.btn_capture_face = QPushButton("📸 Pindai & Daftarkan Wajah Saya (Webcam)")
+        self.btn_capture_face.setObjectName("SecondaryBtn")
+        self.btn_capture_face.clicked.connect(self._open_face_capture)
+        c_layout.addWidget(self.btn_capture_face)
+
+        self.lbl_face_indicator = QLabel("Biometrik wajah: Belum diambil (Opsional)")
+        self.lbl_face_indicator.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        c_layout.addWidget(self.lbl_face_indicator)
+
         layout.addWidget(card)
 
         # Register Button
@@ -76,6 +87,15 @@ class RegisterDialog(QDialog):
         self.btn_submit.setFixedHeight(40)
         self.btn_submit.clicked.connect(self._handle_register)
         layout.addWidget(self.btn_submit)
+
+    def _open_face_capture(self):
+        from ui.face_scan_dialog import FaceScanDialog
+        dlg = FaceScanDialog(parent=self, mode=FaceScanDialog.MODE_REGISTER)
+        if dlg.exec():
+            if dlg.captured_template is not None:
+                self.face_template = dlg.captured_template
+                self.lbl_face_indicator.setText("Biometrik wajah: ✅ Sampel wajah berhasil diambil!")
+                self.lbl_face_indicator.setStyleSheet("color: #34d399; font-weight: bold; font-size: 11px;")
 
     def _handle_register(self):
         name = self.name_input.text().strip()
@@ -93,6 +113,13 @@ class RegisterDialog(QDialog):
 
         success, msg = AuthService.register(username=user, password=pwd, full_name=name)
         if success:
+            if self.face_template is not None:
+                from config.database import db
+                from hardware.biometric import BiometricAuth
+                u_row = db.fetch_one("SELECT id FROM users WHERE username = %s", (user,))
+                if u_row:
+                    BiometricAuth.save_user_face_template(u_row["id"], self.face_template)
+
             QMessageBox.information(self, "Registrasi Berhasil", msg)
             self.registered_username = user
             self.accept()

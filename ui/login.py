@@ -75,7 +75,7 @@ class LoginDialog(QDialog):
         mfa_layout = QVBoxLayout()
         mfa_layout.setSpacing(6)
 
-        self.cb_biometric = QCheckBox("Gunakan Verifikasi Windows Hello (Biometrik)")
+        self.cb_biometric = QCheckBox("Gunakan Verifikasi Biometrik (Face Recognition Webcam)")
         self.cb_biometric.setStyleSheet("color: #cbd5e1;")
         mfa_layout.addWidget(self.cb_biometric)
 
@@ -119,10 +119,10 @@ class LoginDialog(QDialog):
         bio_info = BiometricAuth.check_availability()
         dongles = USBDongleAuth.list_connected_usb_drives()
         
-        bio_str = "Tersedia" if bio_info["available"] else ("Dev Mode Bypass" if DEV_MODE else "Tidak Terdeteksi")
+        bio_str = "Webcam Face Scan Siap" if bio_info["available"] else "Tidak Terdeteksi"
         usb_count = len(dongles)
         
-        return f"Hardware Status: Hello={bio_str} | USB Drives/Tokens={usb_count} {'[DEV_MODE]' if DEV_MODE else ''}"
+        return f"Hardware: Biometrik={bio_str} | USB Drives/Tokens={usb_count}"
 
     def _handle_login(self):
         username = self.user_input.text().strip()
@@ -140,7 +140,8 @@ class LoginDialog(QDialog):
                 username=username,
                 password=password,
                 require_biometric=self.cb_biometric.isChecked(),
-                require_dongle=self.cb_dongle.isChecked()
+                require_dongle=self.cb_dongle.isChecked(),
+                parent_window=self
             )
 
             if success:
